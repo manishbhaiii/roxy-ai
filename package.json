@@ -1,0 +1,27 @@
+{
+  "name": "roxy-ai",
+  "version": "1.0.0",
+  "description": "something cool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/manishbhaiii/roxy-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/manishbhaiii/roxy-ai/issues"
+  },
+  "homepage": "https://github.com/manishbhaiii/roxy-ai#readme",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
+    "gradient-string": "^2.0.2"
+  }
+}
