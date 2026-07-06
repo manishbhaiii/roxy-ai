@@ -59,9 +59,11 @@ client.on(Events.MessageCreate, async (message) => {
             content = "Hello";
         }
 
-        const response = await getChatResponse(message.author.id, displayName, content);
+        const response = await getChatResponse(message, displayName, content);
         
-        await message.reply(response);
+        if (response) {
+            await message.reply(response);
+        }
 
     } catch (error) {
         console.error("Message handling error:", error);
