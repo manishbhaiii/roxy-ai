@@ -1,5 +1,8 @@
 const fs = require('fs/promises');
 const path = require('path');
+const { getEmojis } = require('../tools/EmojiTool');
+const { getStickers } = require('../tools/StickerTool');
+const { reactToMessage } = require('../tools/ReactionTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -40,91 +43,170 @@ async function saveUserHistory(userId, history) {
     }
 }
 
-async function getChatResponse(userId, displayName, userMessage) {
+async function getChatResponse(message, displayName, userMessage) {
     try {
+        const userId = message.author.id;
         const config = await getAiConfig();
         const history = await getUserHistory(userId);
 
         const systemMsg = {
             role: "system",
-            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}`
+            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nYou have access to tools to fetch Discord emojis and stickers. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.`
         };
 
         const effectiveContent = `(User: ${displayName}) ${userMessage}`;
 
-        const messages = [
+        let messages = [
             systemMsg,
             ...history,
             { role: "user", content: effectiveContent }
         ];
 
-        const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Accept': 'text/event-stream',
-                'Content-Type': 'application/json'
+        const tools = [
+            {
+                type: "function",
+                function: {
+                    name: "get_emojis",
+                    description: "Fetch a list of available custom emojis from the server."
+                }
             },
-            body: JSON.stringify({
-                model: "deepseek-v4-flash-free",
-                messages: messages,
-                temperature: 1.0,
-                top_p: 1.0,
-                max_tokens: 8192,
-                stream: true,
-                reasoning_effort: "max",
-                chat_template_kwargs: { thinking: true }
-            })
-        });
-
-        if (!response.ok) {
-            console.error(`[AI] HTTP Error: ${response.status} ${await response.text()}`);
-            return "what you mean?";
-        }
-
-        let fullContent = "";
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            let newlineIndex;
-            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-                const line = buffer.slice(0, newlineIndex).trim();
-                buffer = buffer.slice(newlineIndex + 1);
-
-                if (line.startsWith('data: ')) {
-                    const dataStr = line.slice(6).trim();
-                    if (dataStr === '[DONE]') continue;
-                    try {
-                        const data = JSON.parse(dataStr);
-                        const delta = data.choices?.[0]?.delta;
-                        if (delta?.content) {
-                            fullContent += delta.content;
+            {
+                type: "function",
+                function: {
+                    name: "get_stickers",
+                    description: "Fetch a list of available custom stickers from the server."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "execute_response",
+                    description: "Master tool to execute the final response. Use this to select a combination of text, emojis, stickers, and reactions.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "text": { "type": "string", "description": "Text message to reply with (optional)." },
+                            "reaction_emoji": { "type": "string", "description": "Emoji name to react to the user's message (optional)." },
+                            "sticker_id": { "type": "string", "description": "ID of the sticker to send (optional)." },
+                            "custom_emoji_name": { "type": "string", "description": "Name of custom emoji to append to the text (optional)." }
                         }
-                    } catch (e) { }
-                } else if (line.startsWith('event: error')) {
-                    console.error("[AI] Stream Error Event Received.");
+                    }
                 }
             }
+        ];
+
+        let maxLoops = 4;
+        let finalReply = "";
+
+        while (maxLoops > 0) {
+            maxLoops--;
+            
+            const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "deepseek-v4-flash-free",
+                    messages: messages,
+                    temperature: 1.0,
+                    top_p: 1.0,
+                    max_tokens: 8192,
+                    reasoning_effort: "max",
+                    chat_template_kwargs: { thinking: true },
+                    tools: tools,
+                    tool_choice: "auto"
+                })
+            });
+
+            if (!response.ok) {
+                console.error(`[AI] HTTP Error: ${response.status} ${await response.text()}`);
+                return null;
+            }
+
+            const data = await response.json();
+            const responseMessage = data.choices[0].message;
+            messages.push(responseMessage);
+
+            if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+                for (const toolCall of responseMessage.tool_calls) {
+                    const fnName = toolCall.function.name;
+                    let args = {};
+                    try { args = JSON.parse(toolCall.function.arguments || '{}'); } catch(e){}
+
+                    let toolResult = "";
+
+                    if (fnName === "get_emojis") {
+                        const emojis = await getEmojis(message.client);
+                        toolResult = JSON.stringify(emojis);
+                    } else if (fnName === "get_stickers") {
+                        const stickers = await getStickers(message.client);
+                        toolResult = JSON.stringify(stickers);
+                    } else if (fnName === "execute_response") {
+                        let comboLog = [];
+                        
+                        if (args.reaction_emoji) {
+                            await reactToMessage(message, args.reaction_emoji);
+                            comboLog.push(`[Reacted: ${args.reaction_emoji}]`);
+                        }
+                        
+                        if (args.sticker_id) {
+                            try {
+                                await message.reply({ stickers: [args.sticker_id] });
+                                comboLog.push(`[Sent Sticker: ${args.sticker_id}]`);
+                            } catch(e){}
+                        }
+
+                        let textReply = args.text || "";
+                        if (args.custom_emoji_name) {
+                            const emj = message.client.emojis.cache.find(e => e.name === args.custom_emoji_name);
+                            if (emj) {
+                                textReply += ` <${emj.animated ? 'a' : ''}:${emj.name}:${emj.id}>`;
+                                comboLog.push(`[Appended Emoji: ${args.custom_emoji_name}]`);
+                            }
+                        }
+
+                        if (textReply.trim()) {
+                            finalReply = textReply;
+                        }
+
+                        let historyText = textReply;
+                        if (comboLog.length > 0) historyText += ` ${comboLog.join(" ")}`;
+                        
+                        if (historyText.trim()) {
+                            history.push({ role: "user", content: effectiveContent });
+                            history.push({ role: "assistant", content: historyText.trim() });
+                            await saveUserHistory(userId, history);
+                        }
+                        
+                        return finalReply || null; 
+                    }
+
+                    messages.push({
+                        role: "tool",
+                        tool_call_id: toolCall.id,
+                        content: toolResult
+                    });
+                }
+            } else {
+                let content = responseMessage.content || "";
+                content = content.replace(/<think>[\s\S]*?(?:<\/think>|$)\s*/gi, '');
+                
+                if (content.trim()) {
+                    history.push({ role: "user", content: effectiveContent });
+                    history.push({ role: "assistant", content: content });
+                    await saveUserHistory(userId, history);
+                    return content;
+                }
+                return null;
+            }
         }
-
-        fullContent = fullContent.replace(/<think>[\s\S]*?(?:<\/think>|$)\s*/gi, '');
-
-        if (fullContent.trim()) {
-            history.push({ role: "user", content: effectiveContent });
-            history.push({ role: "assistant", content: fullContent });
-            await saveUserHistory(userId, history);
-            return fullContent;
-        }
-
-        return "what you mean?";
+        
+        return null;
     } catch (error) {
         console.error("Error generating reply:", error);
-        return "what you mean?";
+        return null;
     }
 }
 
