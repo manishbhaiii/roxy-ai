@@ -51,7 +51,7 @@ async function getChatResponse(message, displayName, userMessage) {
 
         const systemMsg = {
             role: "system",
-            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nYou have access to tools to fetch Discord emojis and stickers. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.`
+            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).`
         };
 
         const effectiveContent = `(User: ${displayName}) ${userMessage}`;
@@ -100,7 +100,7 @@ async function getChatResponse(message, displayName, userMessage) {
 
         while (maxLoops > 0) {
             maxLoops--;
-            
+
             const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -133,7 +133,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 for (const toolCall of responseMessage.tool_calls) {
                     const fnName = toolCall.function.name;
                     let args = {};
-                    try { args = JSON.parse(toolCall.function.arguments || '{}'); } catch(e){}
+                    try { args = JSON.parse(toolCall.function.arguments || '{}'); } catch (e) { }
 
                     let toolResult = "";
 
@@ -144,43 +144,89 @@ async function getChatResponse(message, displayName, userMessage) {
                         const stickers = await getStickers(message.client);
                         toolResult = JSON.stringify(stickers);
                     } else if (fnName === "execute_response") {
-                        let comboLog = [];
-                        
-                        if (args.reaction_emoji) {
-                            await reactToMessage(message, args.reaction_emoji);
-                            comboLog.push(`[Reacted: ${args.reaction_emoji}]`);
-                        }
-                        
-                        if (args.sticker_id) {
-                            try {
-                                await message.reply({ stickers: [args.sticker_id] });
-                                comboLog.push(`[Sent Sticker: ${args.sticker_id}]`);
-                            } catch(e){}
-                        }
-
+                        let validationErrors = [];
                         let textReply = args.text || "";
-                        if (args.custom_emoji_name) {
-                            const emj = message.client.emojis.cache.find(e => e.name === args.custom_emoji_name);
-                            if (emj) {
-                                textReply += ` <${emj.animated ? 'a' : ''}:${emj.name}:${emj.id}>`;
-                                comboLog.push(`[Appended Emoji: ${args.custom_emoji_name}]`);
+
+                        if (args.reaction_emoji) {
+                            const isCustom = /^[a-zA-Z0-9_]+$/.test(args.reaction_emoji);
+                            if (isCustom) {
+                                const emj = message.client.emojis.cache.find(e => e.name === args.reaction_emoji || e.id === args.reaction_emoji);
+                                if (!emj) validationErrors.push(`Reaction emoji '${args.reaction_emoji}' not found.`);
                             }
                         }
 
-                        if (textReply.trim()) {
-                            finalReply = textReply;
+                        if (args.custom_emoji_name) {
+                            const emj = message.client.emojis.cache.find(e => e.name === args.custom_emoji_name);
+                            if (!emj) validationErrors.push(`Custom emoji '${args.custom_emoji_name}' not found.`);
                         }
 
-                        let historyText = textReply;
-                        if (comboLog.length > 0) historyText += ` ${comboLog.join(" ")}`;
-                        
-                        if (historyText.trim()) {
-                            history.push({ role: "user", content: effectiveContent });
-                            history.push({ role: "assistant", content: historyText.trim() });
-                            await saveUserHistory(userId, history);
+                        if (textReply) {
+                            const emojiRegex = /<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g;
+                            let match;
+                            while ((match = emojiRegex.exec(textReply)) !== null) {
+                                const name = match[1] || match[2];
+                                const emj = message.client.emojis.cache.find(e => e.name === name);
+                                if (!emj) {
+                                    validationErrors.push(`Emoji '${name}' used in text not found.`);
+                                }
+                            }
                         }
-                        
-                        return finalReply || null; 
+
+                        if (validationErrors.length > 0) {
+                            toolResult = JSON.stringify({
+                                error: "Validation failed. You hallucinated emojis that do not exist in the server.",
+                                details: validationErrors,
+                                instruction: "Please call get_emojis to see the actual list, and then call execute_response again using ONLY valid emoji names from the list."
+                            });
+                        } else {
+                            let comboLog = [];
+
+                            if (args.reaction_emoji) {
+                                await reactToMessage(message, args.reaction_emoji);
+                                comboLog.push(`[Reacted: ${args.reaction_emoji}]`);
+                            }
+
+                            if (args.sticker_id) {
+                                try {
+                                    await message.reply({ stickers: [args.sticker_id] });
+                                    comboLog.push(`[Sent Sticker: ${args.sticker_id}]`);
+                                } catch (e) { }
+                            }
+
+                            if (textReply) {
+                                textReply = textReply.replace(/<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g, (match, name1, name2) => {
+                                    const name = name1 || name2;
+                                    const emj = message.client.emojis.cache.find(e => e.name === name);
+                                    if (emj) {
+                                        return `<${emj.animated ? 'a' : ''}:${emj.name}:${emj.id}>`;
+                                    }
+                                    return match;
+                                });
+                            }
+
+                            if (args.custom_emoji_name) {
+                                const emj = message.client.emojis.cache.find(e => e.name === args.custom_emoji_name);
+                                if (emj) {
+                                    textReply += ` <${emj.animated ? 'a' : ''}:${emj.name}:${emj.id}>`;
+                                    comboLog.push(`[Appended Emoji: ${args.custom_emoji_name}]`);
+                                }
+                            }
+
+                            if (textReply.trim()) {
+                                finalReply = textReply;
+                            }
+
+                            let historyText = textReply;
+                            if (comboLog.length > 0) historyText += ` ${comboLog.join(" ")}`;
+
+                            if (historyText.trim()) {
+                                history.push({ role: "user", content: effectiveContent });
+                                history.push({ role: "assistant", content: historyText.trim() });
+                                await saveUserHistory(userId, history);
+                            }
+
+                            return finalReply || null;
+                        }
                     }
 
                     messages.push({
@@ -192,7 +238,7 @@ async function getChatResponse(message, displayName, userMessage) {
             } else {
                 let content = responseMessage.content || "";
                 content = content.replace(/<think>[\s\S]*?(?:<\/think>|$)\s*/gi, '');
-                
+
                 if (content.trim()) {
                     history.push({ role: "user", content: effectiveContent });
                     history.push({ role: "assistant", content: content });
@@ -202,7 +248,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 return null;
             }
         }
-        
+
         return null;
     } catch (error) {
         console.error("Error generating reply:", error);
