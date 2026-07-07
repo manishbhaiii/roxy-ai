@@ -294,6 +294,32 @@ async function getChatResponse(message, displayName, userMessage) {
                 content = content.replace(/<think>[\s\S]*?(?:<\/think>|$)\s*/gi, '');
 
                 if (content.trim()) {
+                    let validationErrors = [];
+                    const emojiRegex = /<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g;
+                    let match;
+                    while ((match = emojiRegex.exec(content)) !== null) {
+                        const name = match[1] || match[2];
+                        const emj = message.client.emojis.cache.find(e => e.name === name);
+                        if (!emj) validationErrors.push(`Emoji '${name}' not found`);
+                    }
+
+                    if (validationErrors.length > 0) {
+                        messages.push({
+                            role: "user",
+                            content: `SYSTEM ERROR: You hallucinated emojis (${validationErrors.join(", ")}). DO NOT guess emojis. Call get_emojis to see the real list, and ALWAYS use execute_response tool to reply.`
+                        });
+                        continue;
+                    }
+
+                    content = content.replace(/<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g, (match, name1, name2) => {
+                        const name = name1 || name2;
+                        const emj = message.client.emojis.cache.find(e => e.name === name);
+                        if (emj) {
+                            return `<${emj.animated ? 'a' : ''}:${emj.name}:${emj.id}>`;
+                        }
+                        return match;
+                    });
+
                     history.push({ role: "user", content: effectiveContent });
                     history.push({ role: "assistant", content: content });
                     await saveUserHistory(userId, history);
