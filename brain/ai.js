@@ -3,6 +3,9 @@ const path = require('path');
 const { getEmojis } = require('../tools/EmojiTool');
 const { getStickers } = require('../tools/StickerTool');
 const { reactToMessage } = require('../tools/ReactionTool');
+const { getUserInfo } = require('../tools/UserInfoTool');
+const { getAvatar } = require('../tools/AvatarTool');
+const { getBanner } = require('../tools/BannerTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -51,7 +54,7 @@ async function getChatResponse(message, displayName, userMessage) {
 
         const systemMsg = {
             role: "system",
-            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).`
+            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.`
         };
 
         const effectiveContent = `(User: ${displayName}) ${userMessage}`;
@@ -80,6 +83,48 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "get_user_info",
+                    description: "Resolve a user's ID and details using a fuzzy search query (e.g., username, display name, nickname, or raw ID).",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "query": { "type": "string", "description": "The search query (ID or username) to find the user." }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "get_avatar",
+                    description: "Fetch the avatar URL of a specific user ID.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "user_id": { "type": "string", "description": "The resolved user ID." }
+                        },
+                        "required": ["user_id"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "get_banner",
+                    description: "Fetch the banner URL of a specific user ID.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "user_id": { "type": "string", "description": "The resolved user ID." }
+                        },
+                        "required": ["user_id"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "execute_response",
                     description: "Master tool to execute the final response. Use this to select a combination of text, emojis, stickers, and reactions.",
                     parameters: {
@@ -95,7 +140,7 @@ async function getChatResponse(message, displayName, userMessage) {
             }
         ];
 
-        let maxLoops = 4;
+        let maxLoops = 6;
         let finalReply = "";
 
         while (maxLoops > 0) {
@@ -143,6 +188,15 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_stickers") {
                         const stickers = await getStickers(message.client);
                         toolResult = JSON.stringify(stickers);
+                    } else if (fnName === "get_user_info") {
+                        const info = await getUserInfo(message, args.query);
+                        toolResult = JSON.stringify(info);
+                    } else if (fnName === "get_avatar") {
+                        const avatar = await getAvatar(message.client, args.user_id);
+                        toolResult = JSON.stringify({ url: avatar });
+                    } else if (fnName === "get_banner") {
+                        const banner = await getBanner(message.client, args.user_id);
+                        toolResult = JSON.stringify({ url: banner });
                     } else if (fnName === "execute_response") {
                         let validationErrors = [];
                         let textReply = args.text || "";
