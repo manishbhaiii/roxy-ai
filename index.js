@@ -55,6 +55,11 @@ client.on(Events.MessageCreate, async (message) => {
         
         let content = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
         
+        if (message.stickers.size > 0) {
+            const stickerNames = message.stickers.map(s => s.name).join(", ");
+            content += (content ? " " : "") + `[User sent sticker: ${stickerNames}]`;
+        }
+
         if (!content) {
             content = "Hello";
         }
