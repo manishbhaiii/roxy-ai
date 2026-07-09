@@ -266,6 +266,10 @@ async function getChatResponse(message, displayName, userMessage) {
                             }
 
                             if (textReply) {
+                                textReply = textReply.replace(/@everyone/gi, 'everyone')
+                                                     .replace(/@here/gi, 'here')
+                                                     .replace(/<@&\d+>/g, '');
+
                                 textReply = textReply.replace(/<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g, (match, name1, name2) => {
                                     const name = name1 || name2;
                                     const emj = message.client.emojis.cache.find(e => e.name === name);
@@ -328,6 +332,10 @@ async function getChatResponse(message, displayName, userMessage) {
                         });
                         continue;
                     }
+
+                    content = content.replace(/@everyone/gi, 'everyone')
+                                     .replace(/@here/gi, 'here')
+                                     .replace(/<@&\d+>/g, '');
 
                     content = content.replace(/<a?:([a-zA-Z0-9_]+):\d+>|:([a-zA-Z0-9_]+):/g, (match, name1, name2) => {
                         const name = name1 || name2;
