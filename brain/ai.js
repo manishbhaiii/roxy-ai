@@ -143,6 +143,22 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "edit_task",
+                    description: "Edit an existing scheduled task (update instruction or delay time).",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "job_id": { "type": "string" },
+                            "new_instruction": { "type": "string", "description": "New instruction to replace the old one (optional)." },
+                            "new_delay_minutes": { "type": "integer", "description": "New delay time in minutes from now (optional)." }
+                        },
+                        "required": ["job_id"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "get_weather",
                     description: "Fetch the current weather for a specific city or location.",
                     parameters: {
@@ -277,6 +293,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "delete_task") {
                         const { deleteTask } = require('../tools/CronjobTool');
                         toolResult = JSON.stringify(await deleteTask(userId, args.job_id));
+                    } else if (fnName === "edit_task") {
+                        const { editTask } = require('../tools/CronjobTool');
+                        toolResult = JSON.stringify(await editTask(message.client, userId, args.job_id, args.new_instruction, args.new_delay_minutes));
                     } else if (fnName === "get_weather") {
                         const weather = await getWeather(args.location);
                         toolResult = JSON.stringify(weather);

@@ -25,7 +25,7 @@ client.triggerCronjob = async (job) => {
             reply: (opts) => channel.send(opts)
         };
         
-        const syntheticPrompt = `[SCHEDULED TASK TRIGGERED] I scheduled this task earlier: "${job.instruction}". Please execute it now.`;
+        const syntheticPrompt = `[SCHEDULED TASK TRIGGERED] Task: "${job.instruction}". Execute this now! IMPORTANT: You MUST mention the user by including <@${job.userId}> in your text response so they get a notification.`;
         await getChatResponse(fakeMessage, user.displayName || user.username, syntheticPrompt);
     } catch (e) {
         console.error("Failed to trigger cronjob:", e);

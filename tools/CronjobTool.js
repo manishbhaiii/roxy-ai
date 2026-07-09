@@ -63,6 +63,38 @@ async function listTasks(userId) {
     };
 }
 
+async function editTask(client, userId, jobId, newInstruction, newDelayMinutes) {
+    let jobs = await loadJobs();
+    if (!jobs[userId]) return { error: "You have no tasks." };
+
+    let jobIndex = jobs[userId].findIndex(j => j.id === jobId);
+    if (jobIndex === -1) return { error: `Task with ID ${jobId} not found.` };
+
+    let job = jobs[userId][jobIndex];
+
+    if (newInstruction) {
+        job.instruction = newInstruction;
+    }
+
+    if (newDelayMinutes !== undefined && newDelayMinutes !== null) {
+        if (newDelayMinutes <= 0) return { error: "Delay must be greater than 0 minutes." };
+        if (newDelayMinutes > 43200) return { error: "Cannot schedule tasks more than 30 days in advance." };
+        
+        job.triggerAt = Date.now() + (newDelayMinutes * 60 * 1000);
+        
+        if (activeTimers[job.id]) {
+            clearTimeout(activeTimers[job.id]);
+            delete activeTimers[job.id];
+        }
+        startTimer(client, job);
+    }
+
+    jobs[userId][jobIndex] = job;
+    await saveJobs(jobs);
+
+    return { success: true, message: `Task ${jobId} successfully updated.` };
+}
+
 async function deleteTask(userId, jobId) {
     let jobs = await loadJobs();
     if (!jobs[userId]) return { error: "You have no tasks." };
@@ -123,4 +155,4 @@ async function initCronjobs(client) {
     console.log("[CronjobTool] All saved tasks have been loaded and scheduled.");
 }
 
-module.exports = { scheduleTask, listTasks, deleteTask, initCronjobs };
+module.exports = { scheduleTask, listTasks, deleteTask, editTask, initCronjobs };
