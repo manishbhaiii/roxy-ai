@@ -56,7 +56,7 @@ async function getChatResponse(message, displayName, userMessage) {
 
         const systemMsg = {
             role: "system",
-            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.`
+            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.\n8. SCHEDULING & DMs: Use schedule_task for background reminders/delayed actions (Max 5 per user). When it triggers, you will receive a synthetic prompt to execute the task. Use send_dm to message users privately.`
         };
 
         const effectiveContent = `(User: ${displayName}) ${userMessage}`;
@@ -87,6 +87,57 @@ async function getChatResponse(message, displayName, userMessage) {
                 function: {
                     name: "get_bot_stats",
                     description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "send_dm",
+                    description: "Send a direct message to a specific user.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "user_id": { "type": "string" },
+                            "text": { "type": "string" }
+                        },
+                        "required": ["user_id", "text"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "schedule_task",
+                    description: "Schedule a task to be executed automatically after a specific delay. E.g. for reminders.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "instruction": { "type": "string", "description": "The exact instruction to execute when the timer triggers (e.g. 'send dm to <id> saying hello' or 'remind user about homework')." },
+                            "delay_minutes": { "type": "integer", "description": "How many minutes from now to trigger the task." }
+                        },
+                        "required": ["instruction", "delay_minutes"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "list_tasks",
+                    description: "List all active scheduled cronjobs for the user."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "delete_task",
+                    description: "Delete a specific scheduled task by its ID.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "job_id": { "type": "string" }
+                        },
+                        "required": ["job_id"]
+                    }
                 }
             },
             {
@@ -214,6 +265,18 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_bot_stats") {
                         const stats = await getStats(message.client);
                         toolResult = JSON.stringify(stats);
+                    } else if (fnName === "send_dm") {
+                        const { sendDm } = require('../tools/DmTool');
+                        toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));
+                    } else if (fnName === "schedule_task") {
+                        const { scheduleTask } = require('../tools/CronjobTool');
+                        toolResult = JSON.stringify(await scheduleTask(message.client, userId, message.channel.id, args.instruction, args.delay_minutes));
+                    } else if (fnName === "list_tasks") {
+                        const { listTasks } = require('../tools/CronjobTool');
+                        toolResult = JSON.stringify(await listTasks(userId));
+                    } else if (fnName === "delete_task") {
+                        const { deleteTask } = require('../tools/CronjobTool');
+                        toolResult = JSON.stringify(await deleteTask(userId, args.job_id));
                     } else if (fnName === "get_weather") {
                         const weather = await getWeather(args.location);
                         toolResult = JSON.stringify(weather);

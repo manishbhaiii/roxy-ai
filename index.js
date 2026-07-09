@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Events, PermissionsBitField } = require('discord.js');
 const gradient = require('gradient-string');
 const { getChatResponse } = require('./brain/ai');
+const { initCronjobs } = require('./tools/CronjobTool');
 
 const client = new Client({
     intents: [
@@ -11,12 +12,33 @@ const client = new Client({
     ],
 });
 
+client.triggerCronjob = async (job) => {
+    try {
+        const channel = await client.channels.fetch(job.channelId);
+        const user = await client.users.fetch(job.userId);
+        
+        const fakeMessage = {
+            author: user,
+            channel: channel,
+            client: client,
+            guild: channel.guild || null,
+            reply: (opts) => channel.send(opts)
+        };
+        
+        const syntheticPrompt = `[SCHEDULED TASK TRIGGERED] I scheduled this task earlier: "${job.instruction}". Please execute it now.`;
+        await getChatResponse(fakeMessage, user.displayName || user.username, syntheticPrompt);
+    } catch (e) {
+        console.error("Failed to trigger cronjob:", e);
+    }
+};
+
 const purpleWhite = gradient('purple', 'white');
 
 console.log(purpleWhite('roxy ai is booting..'));
 
 client.once(Events.ClientReady, () => {
     console.log(purpleWhite(`hi i am ${client.user.username}`));
+    initCronjobs(client);
 });
 
 client.on(Events.MessageCreate, async (message) => {
