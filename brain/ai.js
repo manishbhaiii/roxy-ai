@@ -7,6 +7,7 @@ const { getUserInfo } = require('../tools/UserInfoTool');
 const { getAvatar } = require('../tools/AvatarTool');
 const { getBanner } = require('../tools/BannerTool');
 const { getWeather } = require('../tools/WeatherTool');
+const { getStats } = require('../tools/StatsTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -79,6 +80,13 @@ async function getChatResponse(message, displayName, userMessage) {
                 function: {
                     name: "get_stickers",
                     description: "Fetch a list of available custom stickers from the server."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "get_bot_stats",
+                    description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime."
                 }
             },
             {
@@ -203,6 +211,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_stickers") {
                         const stickers = await getStickers(message.client);
                         toolResult = JSON.stringify(stickers);
+                    } else if (fnName === "get_bot_stats") {
+                        const stats = await getStats(message.client);
+                        toolResult = JSON.stringify(stats);
                     } else if (fnName === "get_weather") {
                         const weather = await getWeather(args.location);
                         toolResult = JSON.stringify(weather);
