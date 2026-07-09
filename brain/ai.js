@@ -6,6 +6,7 @@ const { reactToMessage } = require('../tools/ReactionTool');
 const { getUserInfo } = require('../tools/UserInfoTool');
 const { getAvatar } = require('../tools/AvatarTool');
 const { getBanner } = require('../tools/BannerTool');
+const { getWeather } = require('../tools/WeatherTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -78,6 +79,20 @@ async function getChatResponse(message, displayName, userMessage) {
                 function: {
                     name: "get_stickers",
                     description: "Fetch a list of available custom stickers from the server."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "get_weather",
+                    description: "Fetch the current weather for a specific city or location.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "location": { "type": "string", "description": "The name of the city or location." }
+                        },
+                        "required": ["location"]
+                    }
                 }
             },
             {
@@ -188,6 +203,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_stickers") {
                         const stickers = await getStickers(message.client);
                         toolResult = JSON.stringify(stickers);
+                    } else if (fnName === "get_weather") {
+                        const weather = await getWeather(args.location);
+                        toolResult = JSON.stringify(weather);
                     } else if (fnName === "get_user_info") {
                         const info = await getUserInfo(message, args.query);
                         toolResult = JSON.stringify(info);
