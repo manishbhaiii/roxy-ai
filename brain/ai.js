@@ -8,6 +8,7 @@ const { getAvatar } = require('../tools/AvatarTool');
 const { getBanner } = require('../tools/BannerTool');
 const { getWeather } = require('../tools/WeatherTool');
 const { getStats } = require('../tools/StatsTool');
+const { webSearch } = require('../tools/SearchTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -87,6 +88,20 @@ async function getChatResponse(message, displayName, userMessage) {
                 function: {
                     name: "get_bot_stats",
                     description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "web_search",
+                    description: "Search the web (internet) for the latest information on a topic.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "query": { "type": "string", "description": "The search query." }
+                        },
+                        "required": ["query"]
+                    }
                 }
             },
             {
@@ -281,6 +296,8 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_bot_stats") {
                         const stats = await getStats(message.client);
                         toolResult = JSON.stringify(stats);
+                    } else if (fnName === "web_search") {
+                        toolResult = JSON.stringify(await webSearch(args.query));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));
