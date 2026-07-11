@@ -1,4 +1,4 @@
-require('dotenv').config();
+const oldLog = console.log; console.log = () => {}; require('dotenv').config(); console.log = oldLog;
 const { Client, GatewayIntentBits, Events, PermissionsBitField } = require('discord.js');
 const gradient = require('gradient-string');
 const { getChatResponse } = require('./brain/ai');
