@@ -152,7 +152,7 @@ async function initCronjobs(client) {
             startTimer(client, job);
         }
     }
-    console.log("[CronjobTool] All saved tasks have been loaded and scheduled.");
+
 }
 
 module.exports = { scheduleTask, listTasks, deleteTask, editTask, initCronjobs };
