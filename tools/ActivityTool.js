@@ -1,10 +1,11 @@
 async function getUserActivity(client, userId) {
     if (!userId) return { error: "User ID is required." };
+    
+    userId = userId.replace(/[^0-9]/g, '');
 
     try {
         let foundPresence = null;
 
-        // Search across all guilds the bot is in to find the member and their presence
         for (const guild of client.guilds.cache.values()) {
             try {
                 const member = await guild.members.fetch(userId);
@@ -13,7 +14,6 @@ async function getUserActivity(client, userId) {
                     break;
                 }
             } catch (e) {
-                // Ignore, user not in this guild or error fetching
             }
         }
 
@@ -31,8 +31,8 @@ async function getUserActivity(client, userId) {
         };
 
         const result = {
-            status: foundPresence.status, // online, idle, dnd, offline
-            devices: foundPresence.clientStatus ? Object.keys(foundPresence.clientStatus) : [], // desktop, mobile, web
+            status: foundPresence.status,
+            devices: foundPresence.clientStatus ? Object.keys(foundPresence.clientStatus) : [],
             activities: []
         };
 
