@@ -9,6 +9,7 @@ const { getBanner } = require('../tools/BannerTool');
 const { getWeather } = require('../tools/WeatherTool');
 const { getStats } = require('../tools/StatsTool');
 const { webSearch } = require('../tools/SearchTool');
+const { getUserActivity } = require('../tools/ActivityTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
@@ -88,6 +89,20 @@ async function getChatResponse(message, displayName, userMessage) {
                 function: {
                     name: "get_bot_stats",
                     description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime."
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "get_activity",
+                    description: "Fetch a user's current activity (playing games, Spotify listening, custom status, devices used, online status).",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "user_id": { "type": "string", "description": "The resolved user ID." }
+                        },
+                        "required": ["user_id"]
+                    }
                 }
             },
             {
@@ -296,6 +311,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_bot_stats") {
                         const stats = await getStats(message.client);
                         toolResult = JSON.stringify(stats);
+                    } else if (fnName === "get_activity") {
+                        const activity = await getUserActivity(message.client, args.user_id);
+                        toolResult = JSON.stringify(activity);
                     } else if (fnName === "web_search") {
                         toolResult = JSON.stringify(await webSearch(args.query));
                     } else if (fnName === "send_dm") {
