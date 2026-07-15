@@ -4,7 +4,7 @@ async function manageTimeout(guild, targetUserId, durationMinutes, executorId) {
     try {
         const executor = await guild.members.fetch(executorId);
         if (!executor || (!executor.permissions.has('ModerateMembers') && !executor.permissions.has('Administrator'))) {
-            return { error: "Access Denied: You do not have permission to timeout members." };
+            return { error: "Access Denied: The user who asked you to do this does not have Admin or ModerateMembers permission." };
         }
 
         const cleanUserId = targetUserId.replace(/[^0-9]/g, '');
@@ -20,6 +20,9 @@ async function manageTimeout(guild, targetUserId, durationMinutes, executorId) {
             return { message: "Successfully unmuted the user." };
         }
     } catch (e) {
+        if (e.message.includes("Missing Permissions")) {
+            return { error: "Failed to execute timeout: Missing Permissions. The bot physically cannot timeout this user (they might be the server owner or have a higher role than the bot)." };
+        }
         return { error: `Failed to execute timeout: ${e.message}` };
     }
 }
