@@ -260,6 +260,24 @@ async function getChatResponse(message, displayName, userMessage) {
             }
         ];
 
+        if (message.member && (message.member.permissions.has('Administrator') || message.member.permissions.has('ModerateMembers'))) {
+            tools.push({
+                type: "function",
+                function: {
+                    name: "timeout_user",
+                    description: "Timeout (mute) or unmute a user in the server. Requires Admin.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "user_id": { "type": "string", "description": "The ID of the user." },
+                            "duration_minutes": { "type": "integer", "description": "Duration in minutes. 0 to unmute." }
+                        },
+                        "required": ["user_id", "duration_minutes"]
+                    }
+                }
+            });
+        }
+
         let maxLoops = 6;
         let finalReply = "";
 
@@ -316,6 +334,9 @@ async function getChatResponse(message, displayName, userMessage) {
                         toolResult = JSON.stringify(activity);
                     } else if (fnName === "web_search") {
                         toolResult = JSON.stringify(await webSearch(args.query));
+                    } else if (fnName === "timeout_user") {
+                        const { manageTimeout } = require('../adminTool/TimeoutTool');
+                        toolResult = JSON.stringify(await manageTimeout(message.guild, args.user_id, args.duration_minutes, message.author.id));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));
