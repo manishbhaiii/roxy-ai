@@ -276,6 +276,20 @@ async function getChatResponse(message, displayName, userMessage) {
                     }
                 }
             });
+            tools.push({
+                type: "function",
+                function: {
+                    name: "purge_messages",
+                    description: "Delete multiple recent messages in the current channel. Requires Admin.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "amount": { "type": "integer", "description": "Number of messages to delete (1-100)." }
+                        },
+                        "required": ["amount"]
+                    }
+                }
+            });
         }
 
         if (message.author.id === process.env.OWNER_ID) {
@@ -354,6 +368,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "timeout_user") {
                         const { manageTimeout } = require('../adminTool/TimeoutTool');
                         toolResult = JSON.stringify(await manageTimeout(message.guild, args.user_id, args.duration_minutes, message.author.id));
+                    } else if (fnName === "purge_messages") {
+                        const { purgeMessages } = require('../adminTool/purgeTool');
+                        toolResult = JSON.stringify(await purgeMessages(message.channel, args.amount));
                     } else if (fnName === "system_power") {
                         const { manageSystem } = require('../ownerTool/RestartTool');
                         toolResult = JSON.stringify(await manageSystem(args.action, message.author.id));
