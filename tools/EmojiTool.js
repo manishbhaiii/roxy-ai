@@ -2,11 +2,13 @@ const fs = require('fs/promises');
 const path = require('path');
 
 async function getEmojis(client) {
-    const emojis = client.emojis.cache.map(e => ({
-        name: e.name,
-        id: e.id,
-        format: `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`
-    }));
+    const emojis = client.emojis.cache
+        .filter(e => e.available)
+        .map(e => ({
+            name: e.name,
+            id: e.id,
+            format: `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`
+        }));
     
     try {
         const dataDir = path.join(__dirname, '../data');
