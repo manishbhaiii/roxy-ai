@@ -278,6 +278,23 @@ async function getChatResponse(message, displayName, userMessage) {
             });
         }
 
+        if (message.author.id === process.env.OWNER_ID) {
+            tools.push({
+                type: "function",
+                function: {
+                    name: "system_power",
+                    description: "Restart or Stop the bot system entirely. ONLY owner can use this.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "action": { "type": "string", "enum": ["restart", "stop"], "description": "The power action to perform." }
+                        },
+                        "required": ["action"]
+                    }
+                }
+            });
+        }
+
         let maxLoops = 6;
         let finalReply = "";
 
@@ -337,6 +354,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "timeout_user") {
                         const { manageTimeout } = require('../adminTool/TimeoutTool');
                         toolResult = JSON.stringify(await manageTimeout(message.guild, args.user_id, args.duration_minutes, message.author.id));
+                    } else if (fnName === "system_power") {
+                        const { manageSystem } = require('../ownerTool/RestartTool');
+                        toolResult = JSON.stringify(await manageSystem(args.action, message.author.id));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));

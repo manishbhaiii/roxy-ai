@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, Events, PermissionsBitField } = require('disc
 const gradient = require('gradient-string');
 const { getChatResponse } = require('./brain/ai');
 const { initCronjobs } = require('./tools/CronjobTool');
+const { startUpdateChecker } = require('./tools/UpdateChecker');
 
 const client = new Client({
     intents: [
@@ -45,6 +46,7 @@ console.log(purpleWhite('roxy ai is booting..'));
 client.once(Events.ClientReady, () => {
     console.log(purpleWhite(`hi i am ${client.user.username}`));
     initCronjobs(client);
+    startUpdateChecker(client);
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -100,6 +102,23 @@ client.on(Events.MessageCreate, async (message) => {
 
     } catch (error) {
         console.error("Message handling error:", error);
+    }
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isButton()) return;
+    
+    if (interaction.customId === 'update_bot_btn') {
+        if (interaction.user.id !== process.env.OWNER_ID) {
+            return interaction.reply({ content: 'You are not the owner!', ephemeral: true });
+        }
+        
+        await interaction.update({ components: [] });
+        await interaction.followUp("Updating... Bot will restart in a few seconds.");
+        
+        setTimeout(() => {
+            process.exit(2);
+        }, 2500);
     }
 });
 
