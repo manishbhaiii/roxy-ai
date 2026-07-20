@@ -427,6 +427,10 @@ async function getChatResponse(message, displayName, userMessage) {
                                     }
                                     return match;
                                 });
+
+                                if (config.use_normal_emoji === false) {
+                                    textReply = textReply.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+                                }
                             }
 
                             if (args.custom_emoji_name) {
@@ -494,6 +498,10 @@ async function getChatResponse(message, displayName, userMessage) {
                         }
                         return match;
                     });
+
+                    if (config.use_normal_emoji === false) {
+                        content = content.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+                    }
 
                     history.push({ role: "user", content: effectiveContent });
                     history.push({ role: "assistant", content: content });

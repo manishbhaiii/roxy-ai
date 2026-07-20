@@ -8,7 +8,7 @@ async function getUserActivity(client, userId) {
 
         for (const guild of client.guilds.cache.values()) {
             try {
-                const member = await guild.members.fetch(userId);
+                const member = await guild.members.fetch({ user: userId, withPresences: true, force: true });
                 if (member && member.presence) {
                     foundPresence = member.presence;
                     break;
