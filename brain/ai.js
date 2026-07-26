@@ -530,8 +530,9 @@ async function getChatResponse(message, displayName, userMessage) {
                             if (historyText.trim()) {
                                 history.push({ role: "user", content: effectiveContent });
                                 history.push({ role: "assistant", content: historyText.trim() });
-                                userData.history = history;
-                                await saveUserData(userId, userData);
+                                const latestUserData = await getUserData(userId);
+                                latestUserData.history = history;
+                                await saveUserData(userId, latestUserData);
                             }
 
                             return finalReply || null;
@@ -585,8 +586,9 @@ async function getChatResponse(message, displayName, userMessage) {
 
                     history.push({ role: "user", content: effectiveContent });
                     history.push({ role: "assistant", content: content });
-                    userData.history = history;
-                    await saveUserData(userId, userData);
+                    const latestUserData = await getUserData(userId);
+                    latestUserData.history = history;
+                    await saveUserData(userId, latestUserData);
                     return content;
                 }
                 return null;
