@@ -345,6 +345,21 @@ async function getChatResponse(message, displayName, userMessage) {
                     }
                 }
             });
+            tools.push({
+                type: "function",
+                function: {
+                    name: "clear_memory",
+                    description: "Clear a user's memory (chat history and profile) or all users' memories. ONLY owner can use this.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "action": { "type": "string", "enum": ["user", "all"], "description": "Whether to clear a single user's memory or all users." },
+                            "target_user_id": { "type": "string", "description": "The target user ID to clear memory for (required if action is 'user')." }
+                        },
+                        "required": ["action"]
+                    }
+                }
+            });
         }
 
         let maxLoops = 6;
@@ -412,6 +427,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "system_power") {
                         const { manageSystem } = require('../ownerTool/RestartTool');
                         toolResult = JSON.stringify(await manageSystem(args.action, message.author.id));
+                    } else if (fnName === "clear_memory") {
+                        const { clearMemory } = require('../ownerTool/ClearMemory');
+                        toolResult = JSON.stringify(await clearMemory(message.author.id, args.action, args.target_user_id));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));
