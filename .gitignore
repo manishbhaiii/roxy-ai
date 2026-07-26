@@ -51,3 +51,4 @@ out/
 # Misc
 .turbo/
 config/ai_config.json
+opencode/   
