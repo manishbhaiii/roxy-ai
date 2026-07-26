@@ -28,25 +28,36 @@ async function getAiConfig() {
     }
 }
 
-async function getUserHistory(userId) {
+const DEFAULT_PROFILE = { name: "", pronouns: "", language: "", likes: [], dislikes: [], notes: [] };
+
+async function getUserData(userId) {
     try {
         const filePath = path.join(DATA_DIR, `${userId}.json`);
         const data = await fs.readFile(filePath, 'utf8');
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        
+        if (Array.isArray(parsed)) {
+            return { profile: { ...DEFAULT_PROFILE }, history: parsed };
+        }
+        
+        return { 
+            profile: { ...DEFAULT_PROFILE, ...(parsed.profile || {}) }, 
+            history: parsed.history || [] 
+        };
     } catch (e) {
-        return [];
+        return { profile: { ...DEFAULT_PROFILE }, history: [] };
     }
 }
 
-async function saveUserHistory(userId, history) {
+async function saveUserData(userId, userData) {
     try {
         await ensureDataDir();
-        if (history.length > 10) {
-            history = history.slice(history.length - 10);
+        if (userData.history.length > 10) {
+            userData.history = userData.history.slice(userData.history.length - 10);
         }
-        await fs.writeFile(path.join(DATA_DIR, `${userId}.json`), JSON.stringify(history, null, 2));
+        await fs.writeFile(path.join(DATA_DIR, `${userId}.json`), JSON.stringify(userData, null, 2));
     } catch (e) {
-        console.error("Error saving user history:", e);
+        console.error("Error saving user data:", e);
     }
 }
 
@@ -54,11 +65,22 @@ async function getChatResponse(message, displayName, userMessage) {
     try {
         const userId = message.author.id;
         const config = await getAiConfig();
-        const history = await getUserHistory(userId);
+        const userData = await getUserData(userId);
+        const history = userData.history;
+        const profile = userData.profile;
+
+        let profileContext = `\n\nUSER PROFILE (Dynamic Memory):\n`;
+        profileContext += `- Name: ${profile.name || "Unknown"}\n`;
+        profileContext += `- Pronouns: ${profile.pronouns || "Unknown"}\n`;
+        profileContext += `- Language: ${profile.language || "Unknown"}\n`;
+        profileContext += `- Likes: ${profile.likes.length ? profile.likes.join(", ") : "None"}\n`;
+        profileContext += `- Dislikes: ${profile.dislikes.length ? profile.dislikes.join(", ") : "None"}\n`;
+        profileContext += `- Notes: ${profile.notes.length ? profile.notes.join(" | ") : "None"}\n`;
+        profileContext += `(You can edit this profile using the update_profile tool)`;
 
         const systemMsg = {
             role: "system",
-            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.\n8. SCHEDULING & DMs: Use schedule_task for background reminders/delayed actions (Max 5 per user). When it triggers, you will receive a synthetic prompt to execute the task. Use send_dm to message users privately.`
+            content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.\n8. SCHEDULING & DMs: Use schedule_task for background reminders/delayed actions (Max 5 per user). When it triggers, you will receive a synthetic prompt to execute the task. Use send_dm to message users privately.${profileContext}`
         };
 
         const effectiveContent = `(User: ${displayName}) ${userMessage}`;
@@ -257,6 +279,22 @@ async function getChatResponse(message, displayName, userMessage) {
                         }
                     }
                 }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "update_profile",
+                    description: "Update the user's dynamic profile memory (e.g., if they state their name, likes, dislikes, pronouns).",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "field": { "type": "string", "enum": ["name", "pronouns", "language", "likes", "dislikes", "notes"], "description": "The profile field to update." },
+                            "action": { "type": "string", "enum": ["set", "add", "remove"], "description": "Use 'set' for strings. Use 'add' or 'remove' for arrays (likes, dislikes, notes)." },
+                            "value": { "type": "string", "description": "The value to set, add, or remove." }
+                        },
+                        "required": ["field", "action", "value"]
+                    }
+                }
             }
         ];
 
@@ -385,7 +423,10 @@ async function getChatResponse(message, displayName, userMessage) {
                         toolResult = JSON.stringify(await listTasks(userId));
                     } else if (fnName === "delete_task") {
                         const { deleteTask } = require('../tools/CronjobTool');
-                        toolResult = JSON.stringify(await deleteTask(userId, args.job_id));
+                        toolResult = JSON.stringify(await deleteTask(userId, args.task_id));
+                    } else if (fnName === "update_profile") {
+                        const { updateProfile } = require('../tools/ProfileTool');
+                        toolResult = JSON.stringify(await updateProfile(userId, args.field, args.action, args.value));
                     } else if (fnName === "edit_task") {
                         const { editTask } = require('../tools/CronjobTool');
                         toolResult = JSON.stringify(await editTask(message.client, userId, args.job_id, args.new_instruction, args.new_delay_minutes));
@@ -488,7 +529,8 @@ async function getChatResponse(message, displayName, userMessage) {
                             if (historyText.trim()) {
                                 history.push({ role: "user", content: effectiveContent });
                                 history.push({ role: "assistant", content: historyText.trim() });
-                                await saveUserHistory(userId, history);
+                                userData.history = history;
+                                await saveUserData(userId, userData);
                             }
 
                             return finalReply || null;
@@ -542,7 +584,8 @@ async function getChatResponse(message, displayName, userMessage) {
 
                     history.push({ role: "user", content: effectiveContent });
                     history.push({ role: "assistant", content: content });
-                    await saveUserHistory(userId, history);
+                    userData.history = history;
+                    await saveUserData(userId, userData);
                     return content;
                 }
                 return null;
