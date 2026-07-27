@@ -295,6 +295,23 @@ async function getChatResponse(message, displayName, userMessage) {
                         "required": ["field", "action", "value"]
                     }
                 }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "generate_image",
+                    description: "Generates an image URL for Discord embedding based on a prompt. It returns the properly formatted URL which you must then send using execute_response.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "prompt": { "type": "string", "description": "The detailed description of the image to generate." },
+                            "model": { "type": "string", "enum": ["flux", "grok-imagine", "ideogram-v4-turbo", "gptimage", "sana"], "description": "The model to use." },
+                            "width": { "type": "integer", "description": "Width of the image. E.g., 1024, 1920, 1080" },
+                            "height": { "type": "integer", "description": "Height of the image. E.g., 1024, 1080, 1920" }
+                        },
+                        "required": ["prompt", "model"]
+                    }
+                }
             }
         ];
 
@@ -448,6 +465,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "edit_task") {
                         const { editTask } = require('../tools/CronjobTool');
                         toolResult = JSON.stringify(await editTask(message.client, userId, args.job_id, args.new_instruction, args.new_delay_minutes));
+                    } else if (fnName === "generate_image") {
+                        const { generateImage } = require('../tools/ImageTool');
+                        toolResult = JSON.stringify(generateImage(args.prompt, args.model, args.width, args.height));
                     } else if (fnName === "get_weather") {
                         const weather = await getWeather(args.location);
                         toolResult = JSON.stringify(weather);
@@ -464,6 +484,21 @@ async function getChatResponse(message, displayName, userMessage) {
                         let validationErrors = [];
                         let textReply = args.text || "";
                         textReply = textReply.replace(/<think>[\s\S]*?(?:<\/think>|$)\s*/gi, '');
+
+                        const urlRegex = /https:\/\/image\.pollinations\.ai\/prompt\/[^\s]+/g;
+                        textReply = textReply.replace(urlRegex, (url) => {
+                            if (!url.includes('nologo=true')) {
+                                return url.includes('?') ? `${url}&nologo=true` : `${url}?nologo=true`;
+                            }
+                            return url;
+                        });
+
+                        const textWithoutUrlsAndSpaces = textReply.replace(urlRegex, '').trim();
+                        if (textWithoutUrlsAndSpaces.length > 0) {
+                            textReply = textReply.replace(/(?<!\]\()https:\/\/image\.pollinations\.ai\/prompt\/[^\s)]+/g, (match) => {
+                                return `[\`](${match})`;
+                            });
+                        }
 
                         if (args.reaction_emoji) {
                             const isCustom = /^[a-zA-Z0-9_]+$/.test(args.reaction_emoji);
