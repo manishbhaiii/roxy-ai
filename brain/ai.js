@@ -496,7 +496,7 @@ async function getChatResponse(message, displayName, userMessage) {
                         const textWithoutUrlsAndSpaces = textReply.replace(urlRegex, '').trim();
                         if (textWithoutUrlsAndSpaces.length > 0) {
                             textReply = textReply.replace(/(?<!\]\()https:\/\/image\.pollinations\.ai\/prompt\/[^\s)]+/g, (match) => {
-                                return `[\`](${match})`;
+                                return `[\u200B](${match})`;
                             });
                         }
 
