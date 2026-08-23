@@ -663,11 +663,7 @@ async function getChatResponse(message, displayName, userMessage) {
                         content = content.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
                     }
 
-                    history.push({ role: "user", content: effectiveContent });
-                    history.push({ role: "assistant", content: content });
-                    const latestUserData = await getUserData(userId);
-                    latestUserData.history = history;
-                    await saveUserData(userId, latestUserData);
+                    // No longer saving to file-based history here.
                     return content;
                 }
                 return null;
