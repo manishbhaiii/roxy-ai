@@ -392,7 +392,7 @@ async function getChatResponse(message, displayName, userMessage) {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: "deepseek-v4-flash-free",
+                    model: "x-preview-f-free",
                     messages: messages,
                     temperature: 1.0,
                     top_p: 1.0,
