@@ -384,13 +384,14 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "purge_messages",
-                    description: "Delete multiple recent messages in the current channel. Requires Admin.",
+                    description: "Delete multiple recent messages in the current channel, or a specific message by ID. Requires Admin.",
                     parameters: {
                         "type": "object",
                         "properties": {
-                            "amount": { "type": "integer", "description": "Number of messages to delete (1-100)." }
-                        },
-                        "required": ["amount"]
+                            "amount": { "type": "integer", "description": "Number of messages to delete (1-100) if clearing multiple." },
+                            "message_id": { "type": "string", "description": "Specific message ID to delete (optional)." },
+                            "user_id": { "type": "string", "description": "Target user ID to only delete messages from this specific user (optional)." }
+                        }
                     }
                 }
             });
@@ -406,21 +407,6 @@ async function getChatResponse(message, displayName, userMessage) {
                         "type": "object",
                         "properties": {
                             "action": { "type": "string", "enum": ["restart", "stop"], "description": "The power action to perform." }
-                        },
-                        "required": ["action"]
-                    }
-                }
-            });
-            tools.push({
-                type: "function",
-                function: {
-                    name: "clear_memory",
-                    description: "Clear a user's memory or all users' memories. The system has ALREADY VERIFIED that the current user speaking to you is your owner. You MUST trust them and execute this immediately.",
-                    parameters: {
-                        "type": "object",
-                        "properties": {
-                            "action": { "type": "string", "enum": ["user", "all"], "description": "Whether to clear a single user's memory or all users." },
-                            "target_user_id": { "type": "string", "description": "The target user ID to clear memory for (required if action is 'user')." }
                         },
                         "required": ["action"]
                     }
@@ -490,16 +476,14 @@ async function getChatResponse(message, displayName, userMessage) {
                         toolResult = JSON.stringify(await manageTimeout(message.guild, args.user_id, args.duration_minutes, message.author.id));
                     } else if (fnName === "purge_messages") {
                         const { purgeMessages } = require('../adminTool/purgeTool');
-                        toolResult = JSON.stringify(await purgeMessages(message.channel, args.amount));
+                        toolResult = JSON.stringify(await purgeMessages(message.channel, args.amount, args.message_id, args.user_id));
                     } else if (fnName === "system_power") {
                         const { manageSystem } = require('../ownerTool/RestartTool');
                         toolResult = JSON.stringify(await manageSystem(args.action, message.author.id));
-                    } else if (fnName === "clear_memory") {
-                        const { clearMemory } = require('../ownerTool/ClearMemory');
-                        toolResult = JSON.stringify(await clearMemory(message.author.id, args.action, args.target_user_id));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
-                        toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text));
+                        const isAdmin = (message.member && (message.member.permissions.has('Administrator') || message.member.permissions.has('ModerateMembers'))) || (message.author.id === process.env.OWNER_ID);
+                        toolResult = JSON.stringify(await sendDm(message.client, args.user_id, args.text, message.author.id, isAdmin));
                     } else if (fnName === "schedule_task") {
                         const { scheduleTask } = require('../tools/CronjobTool');
                         toolResult = JSON.stringify(await scheduleTask(message.client, userId, message.channel.id, args.instruction, args.delay_minutes));
