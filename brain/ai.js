@@ -389,7 +389,8 @@ async function getChatResponse(message, displayName, userMessage) {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'opencode/1.0.0'
                 },
                 body: JSON.stringify({
                     model: "mimo-v2.5-free",
