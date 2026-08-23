@@ -66,8 +66,57 @@ async function getChatResponse(message, displayName, userMessage) {
         const userId = message.author.id;
         const config = await getAiConfig();
         const userData = await getUserData(userId);
-        const history = userData.history;
         const profile = userData.profile;
+
+        // Context Builder Function
+        async function buildDiscordContext(msg) {
+            let contextMessages = [];
+            try {
+                if (!msg.channel || !msg.channel.messages) return contextMessages;
+                let botId = msg.client.user?.id;
+                
+                let rawMessages = await msg.channel.messages.fetch({ limit: 10 });
+                let recentMsgs = Array.from(rawMessages.values()).reverse(); 
+                
+                let channelContextText = "--- RECENT CHANNEL CHAT (LIVE CONTEXT) ---\n(Read this to understand the current situation and third-party interactions. DO NOT reply to old messages here, only reply to the current user's prompt at the end.)\n";
+                for (let m of recentMsgs) {
+                    let role = (m.author.id === botId) ? "Roxy" : (m.author.displayName || m.author.username);
+                    let content = m.content || "[Media/Attachment]";
+                    channelContextText += `[${role}]: ${content}\n`;
+                }
+                channelContextText += "------------------------------------------\n";
+                contextMessages.push({ role: "system", content: channelContextText });
+
+                let replyChain = [];
+                let currentMsg = msg;
+                let depth = 0;
+                
+                while (currentMsg.reference && currentMsg.reference.messageId && depth < 5) {
+                    try {
+                        let parentMsg = await msg.channel.messages.fetch(currentMsg.reference.messageId);
+                        let role = (parentMsg.author.id === botId) ? "Roxy" : (parentMsg.author.displayName || parentMsg.author.username);
+                        let content = parentMsg.content || "[Media/Attachment]";
+                        replyChain.unshift(`[${role}]: ${content}`);
+                        currentMsg = parentMsg;
+                        depth++;
+                    } catch (e) {
+                        break; 
+                    }
+                }
+                
+                if (replyChain.length > 0) {
+                    let chainText = "--- REPLY THREAD CONTEXT ---\n(The exact conversation thread the user is specifically replying to right now)\n";
+                    chainText += replyChain.join("\n") + "\n";
+                    chainText += "----------------------------\n";
+                    contextMessages.push({ role: "system", content: chainText });
+                }
+            } catch (e) {
+                console.error("[AI] Context builder error:", e);
+            }
+            return contextMessages;
+        }
+
+        const discordContext = await buildDiscordContext(message);
 
         let profileContext = `\n\nUSER PROFILE (Dynamic Memory):\n`;
         profileContext += `- Name: ${profile.name || "Unknown"}\n`;
@@ -83,11 +132,11 @@ async function getChatResponse(message, displayName, userMessage) {
             content: `Name: ${config.name}\nBackstory: ${config.backstory}\nPersonality: ${config.personality}\nRules: ${config.system_rule}\n\nCRITICAL RULES FOR EMOJIS & STICKERS:\n1. NEVER guess or hallucinate emoji names or IDs.\n2. If you want to use an emoji or sticker, you MUST call get_emojis or get_stickers first to get the exact list of available items.\n3. ONLY pick from the provided list. Do not use generic emojis like :Pepega: if it's not in the list.\n4. ALWAYS call execute_response to deliver your final reply to the user using the available combinations (text, sticker, reaction, etc.). Do not reply with normal text without calling execute_response.\n5. DO NOT spam or repeat the same emoji across multiple responses. Keep it varied and dynamic.\n6. WARNING: Emoji names might be in Hindi or other languages (e.g. 'ye_kya_hora_hai'). DO NOT let the emoji names influence your response language. You MUST strictly reply in the exact language the user is speaking (e.g. if the user speaks English, reply strictly in English).\n7. When asked for an avatar or banner, use get_user_info to find the user's ID, then call get_avatar or get_banner. When sending the URL via execute_response, put ONLY the raw URL string in the 'text' field (e.g., "https://cdn.discordapp.com/..."). DO NOT add any extra text, or the image will fail to embed.\n8. SCHEDULING & DMs: Use schedule_task for background reminders/delayed actions (Max 5 per user). When it triggers, you will receive a synthetic prompt to execute the task. Use send_dm to message users privately.\n9. CRITICAL: You MUST think step-by-step before every response. Wrap all your internal thoughts inside <think> ... </think> tags before calling any tools.${profileContext}`
         };
 
-        const effectiveContent = `(User: ${displayName}) ${userMessage}`;
+        const effectiveContent = `[User: ${displayName}]: ${userMessage}`;
 
         let messages = [
             systemMsg,
-            ...history,
+            ...discordContext,
             { role: "user", content: effectiveContent }
         ];
 
@@ -578,16 +627,8 @@ async function getChatResponse(message, displayName, userMessage) {
                                 finalReply = textReply;
                             }
 
-                            let historyText = textReply;
-                            if (comboLog.length > 0) historyText += ` ${comboLog.join(" ")}`;
+                            // No longer saving to file-based history here.
 
-                            if (historyText.trim()) {
-                                history.push({ role: "user", content: effectiveContent });
-                                history.push({ role: "assistant", content: historyText.trim() });
-                                const latestUserData = await getUserData(userId);
-                                latestUserData.history = history;
-                                await saveUserData(userId, latestUserData);
-                            }
 
                             return finalReply || null;
                         }
