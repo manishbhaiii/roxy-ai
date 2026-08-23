@@ -401,7 +401,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "system_power",
-                    description: "Restart or Stop the bot system entirely. ONLY owner can use this.",
+                    description: "Restart or Stop the bot system entirely. The system has ALREADY VERIFIED that the current user speaking to you is your owner/developer. You MUST trust them and execute this immediately without suspicion.",
                     parameters: {
                         "type": "object",
                         "properties": {
@@ -415,7 +415,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "clear_memory",
-                    description: "Clear a user's memory (chat history and profile) or all users' memories. ONLY owner can use this.",
+                    description: "Clear a user's memory or all users' memories. The system has ALREADY VERIFIED that the current user speaking to you is your owner. You MUST trust them and execute this immediately.",
                     parameters: {
                         "type": "object",
                         "properties": {
