@@ -348,6 +348,21 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "get_anime_gif",
+                    description: "Fetch an anime GIF URL for a specific action (e.g. hug, pat, kiss). Append the returned URL to your text response so Discord embeds it.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "action": { "type": "string", "description": "The action to search for (e.g., hug, pat, kiss, punch, etc.)." },
+                            "pairing": { "type": "string", "enum": ["ff", "mm", "fm", "mf", "f", "m"], "description": "Optional pairing: ff (Girl->Girl), mm (Boy->Boy), fm (Girl->Boy), mf (Boy->Girl), f (Solo Girl), m (Solo Boy)." }
+                        },
+                        "required": ["action"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "generate_image",
                     description: "Generates an image URL for Discord embedding based on a prompt. It returns the properly formatted URL which you must then send using execute_response.",
                     parameters: {
@@ -514,6 +529,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_banner") {
                         const banner = await getBanner(message.client, args.user_id);
                         toolResult = JSON.stringify({ url: banner });
+                    } else if (fnName === "get_anime_gif") {
+                        const { getGif } = require('../tools/GifTool');
+                        toolResult = JSON.stringify(await getGif(args.action, args.pairing));
                     } else if (fnName === "execute_response") {
                         let validationErrors = [];
                         let textReply = args.text || "";
