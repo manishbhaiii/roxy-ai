@@ -14,20 +14,18 @@ const { getUserActivity } = require('../tools/ActivityTool');
 const DATA_DIR = path.join(__dirname, '../data');
 
 let currentFreeModels = ["mimo-v2.5-free", "deepseek-v4-flash-free"];
-let modelCacheTime = 0;
+let bannedModels = {};
+let activeModel = null;
 
 async function refreshFreeModels() {
-    if (Date.now() - modelCacheTime < 3600000) return currentFreeModels;
     try {
         const res = await fetch("https://opencode.ai/zen/v1/models");
         const json = await res.json();
         const models = json.data.filter(m => m.id.toLowerCase().includes('free')).map(m => m.id);
         if (models.length > 0) {
             currentFreeModels = models;
-            modelCacheTime = Date.now();
         }
     } catch (e) {
-        console.error("Failed to refresh models:", e);
     }
     return currentFreeModels;
 }
@@ -458,7 +456,21 @@ async function getChatResponse(message, displayName, userMessage) {
             let success = false;
             let currentModel = "";
 
-            for (let modelId of currentFreeModels) {
+            let modelsToTry = currentFreeModels.filter(m => !bannedModels[m] || Date.now() > bannedModels[m]);
+            if (modelsToTry.length === 0) {
+                await refreshFreeModels();
+                modelsToTry = currentFreeModels.filter(m => !bannedModels[m] || Date.now() > bannedModels[m]);
+            }
+            if (modelsToTry.length === 0) {
+                bannedModels = {};
+                modelsToTry = currentFreeModels;
+            }
+
+            if (activeModel && modelsToTry.includes(activeModel)) {
+                modelsToTry = [activeModel, ...modelsToTry.filter(m => m !== activeModel)];
+            }
+
+            for (let modelId of modelsToTry) {
                 try {
                     response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
                         method: 'POST',
@@ -483,53 +495,25 @@ async function getChatResponse(message, displayName, userMessage) {
                     if (response.ok) {
                         success = true;
                         currentModel = modelId;
+                        if (activeModel !== modelId) {
+                            console.log(`\x1b[32m🟢 P: ${modelId}\x1b[0m`);
+                            activeModel = modelId;
+                        }
                         break;
                     } else {
-                        console.warn(`[AI] Model ${modelId} failed: ${response.status}`);
+                        console.log(`\x1b[31m🔴 F: ${modelId}\x1b[0m`);
+                        bannedModels[modelId] = Date.now() + 3600000;
+                        if (activeModel === modelId) activeModel = null;
                     }
                 } catch (err) {
-                    console.warn(`[AI] Model ${modelId} network error: ${err.message}`);
+                    console.log(`\x1b[31m🔴 F: ${modelId}\x1b[0m`);
+                    bannedModels[modelId] = Date.now() + 3600000;
+                    if (activeModel === modelId) activeModel = null;
                 }
             }
 
             if (!success) {
-                console.warn("[AI] All known models failed. Refreshing models from API...");
-                modelCacheTime = 0;
-                await refreshFreeModels();
-                
-                for (let modelId of currentFreeModels) {
-                    try {
-                        response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'User-Agent': 'opencode/1.0.0'
-                            },
-                            body: JSON.stringify({
-                                model: modelId,
-                                messages: messages,
-                                temperature: 1.0,
-                                top_p: 1.0,
-                                max_tokens: 8192,
-                                reasoning_effort: "max",
-                                chat_template_kwargs: { thinking: true },
-                                tools: tools,
-                                tool_choice: "auto"
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            success = true;
-                            currentModel = modelId;
-                            break;
-                        }
-                    } catch (err) { }
-                }
-            }
-
-            if (!success) {
-                console.error("[AI] All models failed even after refresh!");
+                console.error("🔴 All models failed!");
                 return "Error: All AI models are currently down or unavailable. Please try again later.";
             }
 
