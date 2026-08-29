@@ -496,25 +496,24 @@ async function getChatResponse(message, displayName, userMessage) {
                         success = true;
                         currentModel = modelId;
                         if (activeModel !== modelId) {
-                            console.log(`\x1b[32m🟢 P: ${modelId}\x1b[0m`);
+                            console.log(`\x1b[32mP: ${modelId}\x1b[0m`);
                             activeModel = modelId;
                         }
                         break;
                     } else {
-                        console.log(`\x1b[31m🔴 F: ${modelId}\x1b[0m`);
+                        console.log(`\x1b[31mF: ${modelId}\x1b[0m`);
                         bannedModels[modelId] = Date.now() + 3600000;
                         if (activeModel === modelId) activeModel = null;
                     }
                 } catch (err) {
-                    console.log(`\x1b[31m🔴 F: ${modelId}\x1b[0m`);
+                    console.log(`\x1b[31mF: ${modelId}\x1b[0m`);
                     bannedModels[modelId] = Date.now() + 3600000;
                     if (activeModel === modelId) activeModel = null;
                 }
             }
 
             if (!success) {
-                console.error("🔴 All models failed!");
-                return "Error: All AI models are currently down or unavailable. Please try again later.";
+                return "i am sleeping rn";
             }
 
             const data = await response.json();
