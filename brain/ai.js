@@ -380,6 +380,21 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "http_request",
+                    description: "Make an HTTP GET request to a public API or URL to fetch data (like a curl command). Automatically truncates massive responses to 2500 characters. Use this for APIs that don't have a dedicated tool.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "url": { "type": "string", "description": "The exact URL to fetch data from." },
+                            "headers": { "type": "object", "description": "Optional headers object (e.g. {'Authorization': 'Bearer ...'})." }
+                        },
+                        "required": ["url"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "generate_image",
                     description: "Generates an image URL for Discord embedding based on a prompt. It returns the properly formatted URL which you must then send using execute_response.",
                     parameters: {
@@ -573,6 +588,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "generate_image") {
                         const { generateImage } = require('../tools/ImageTool');
                         toolResult = JSON.stringify(generateImage(args.prompt, args.model, args.width, args.height));
+                    } else if (fnName === "http_request") {
+                        const { httpRequest } = require('../tools/HttpTool');
+                        toolResult = JSON.stringify(await httpRequest(args.url, args.headers));
                     } else if (fnName === "get_weather") {
                         const weather = await getWeather(args.location);
                         toolResult = JSON.stringify(weather);
