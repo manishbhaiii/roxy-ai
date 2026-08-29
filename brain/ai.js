@@ -13,6 +13,25 @@ const { getUserActivity } = require('../tools/ActivityTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
+let currentFreeModels = ["mimo-v2.5-free", "deepseek-v4-flash-free"];
+let modelCacheTime = 0;
+
+async function refreshFreeModels() {
+    if (Date.now() - modelCacheTime < 3600000) return currentFreeModels;
+    try {
+        const res = await fetch("https://opencode.ai/zen/v1/models");
+        const json = await res.json();
+        const models = json.data.filter(m => m.id.toLowerCase().includes('free')).map(m => m.id);
+        if (models.length > 0) {
+            currentFreeModels = models;
+            modelCacheTime = Date.now();
+        }
+    } catch (e) {
+        console.error("Failed to refresh models:", e);
+    }
+    return currentFreeModels;
+}
+
 async function ensureDataDir() {
     try {
         await fs.mkdir(DATA_DIR, { recursive: false });
@@ -429,35 +448,89 @@ async function getChatResponse(message, displayName, userMessage) {
             });
         }
 
-        let maxLoops = 6;
+        let maxLoops = 15;
         let finalReply = "";
 
         while (maxLoops > 0) {
             maxLoops--;
 
-            const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'opencode/1.0.0'
-                },
-                body: JSON.stringify({
-                    model: "mimo-v2.5-free",
-                    messages: messages,
-                    temperature: 1.0,
-                    top_p: 1.0,
-                    max_tokens: 8192,
-                    reasoning_effort: "max",
-                    chat_template_kwargs: { thinking: true },
-                    tools: tools,
-                    tool_choice: "auto"
-                })
-            });
+            let response = null;
+            let success = false;
+            let currentModel = "";
 
-            if (!response.ok) {
-                console.error(`[AI] HTTP Error: ${response.status} ${await response.text()}`);
-                return null;
+            for (let modelId of currentFreeModels) {
+                try {
+                    response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'opencode/1.0.0'
+                        },
+                        body: JSON.stringify({
+                            model: modelId,
+                            messages: messages,
+                            temperature: 1.0,
+                            top_p: 1.0,
+                            max_tokens: 8192,
+                            reasoning_effort: "max",
+                            chat_template_kwargs: { thinking: true },
+                            tools: tools,
+                            tool_choice: "auto"
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        success = true;
+                        currentModel = modelId;
+                        break;
+                    } else {
+                        console.warn(`[AI] Model ${modelId} failed: ${response.status}`);
+                    }
+                } catch (err) {
+                    console.warn(`[AI] Model ${modelId} network error: ${err.message}`);
+                }
+            }
+
+            if (!success) {
+                console.warn("[AI] All known models failed. Refreshing models from API...");
+                modelCacheTime = 0;
+                await refreshFreeModels();
+                
+                for (let modelId of currentFreeModels) {
+                    try {
+                        response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'User-Agent': 'opencode/1.0.0'
+                            },
+                            body: JSON.stringify({
+                                model: modelId,
+                                messages: messages,
+                                temperature: 1.0,
+                                top_p: 1.0,
+                                max_tokens: 8192,
+                                reasoning_effort: "max",
+                                chat_template_kwargs: { thinking: true },
+                                tools: tools,
+                                tool_choice: "auto"
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            success = true;
+                            currentModel = modelId;
+                            break;
+                        }
+                    } catch (err) { }
+                }
+            }
+
+            if (!success) {
+                console.error("[AI] All models failed even after refresh!");
+                return "Error: All AI models are currently down or unavailable. Please try again later.";
             }
 
             const data = await response.json();
@@ -687,8 +760,9 @@ async function getChatResponse(message, displayName, userMessage) {
                 return null;
             }
         }
+        
+        return "I had to think too hard and reached my internal processing limit! Could you simplify your request or ask again?";
 
-        return null;
     } catch (error) {
         console.error("Error generating reply:", error);
         return null;

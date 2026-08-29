@@ -80,6 +80,9 @@ client.on(Events.MessageCreate, async (message) => {
         if (!isMentioned && !isReplyToBot) return;
 
         await message.channel.sendTyping();
+        const typingInterval = setInterval(() => {
+            message.channel.sendTyping().catch(() => {});
+        }, 9000);
 
         const displayName = message.member ? message.member.displayName : (message.author.displayName || message.author.username);
         
@@ -94,7 +97,12 @@ client.on(Events.MessageCreate, async (message) => {
             content = "Hello";
         }
 
-        const response = await getChatResponse(message, displayName, content);
+        let response;
+        try {
+            response = await getChatResponse(message, displayName, content);
+        } finally {
+            clearInterval(typingInterval);
+        }
         
         if (response) {
             await message.reply(response);
