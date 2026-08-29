@@ -565,7 +565,7 @@ async function getChatResponse(message, displayName, userMessage) {
                         toolResult = JSON.stringify(await purgeMessages(message.channel, args.amount, args.message_id, args.user_id));
                     } else if (fnName === "system_power") {
                         const { manageSystem } = require('../ownerTool/RestartTool');
-                        toolResult = JSON.stringify(await manageSystem(args.action, message.author.id));
+                        toolResult = JSON.stringify(await manageSystem(message.client, args.action, message.author.id));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         const isAdmin = (message.member && (message.member.permissions.has('Administrator') || message.member.permissions.has('ModerateMembers'))) || (message.author.id === process.env.OWNER_ID);
