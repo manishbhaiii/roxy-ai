@@ -381,7 +381,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "http_request",
-                    description: "Make an HTTP GET request to a public API or URL to fetch data (like a curl command). Automatically truncates massive responses to 2500 characters. Use this for APIs that don't have a dedicated tool.",
+                    description: "Make an HTTP GET request to fetch public API data.",
                     parameters: {
                         "type": "object",
                         "properties": {
