@@ -459,6 +459,24 @@ async function getChatResponse(message, displayName, userMessage) {
                     }
                 }
             });
+            tools.push({
+                type: "function",
+                function: {
+                    name: "bot_status",
+                    description: "Set the bot's custom status (message/emoji), activity (playing/listening/watching/competing), and online status. Skip image properties since they can't be set. The system ALREADY VERIFIED that the current user is your owner.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "status": { "type": "string", "enum": ["online", "idle", "dnd", "invisible"], "description": "The online status indicator." },
+                            "activity_type": { "type": "string", "enum": ["playing", "listening", "watching", "streaming", "custom", "competing"], "description": "The type of activity." },
+                            "activity_name": { "type": "string", "description": "The main text of the activity (e.g. game name). Leave empty if custom type." },
+                            "state": { "type": "string", "description": "The custom status message, or secondary text for activities." },
+                            "emoji": { "type": "string", "description": "A single unicode emoji or a custom emoji string (e.g. <:name:id>) for custom status." },
+                            "stream_url": { "type": "string", "description": "Twitch/YouTube URL if streaming." }
+                        }
+                    }
+                }
+            });
         }
 
         let maxLoops = 15;
@@ -581,6 +599,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "system_power") {
                         const { manageSystem } = require('../ownerTool/RestartTool');
                         toolResult = JSON.stringify(await manageSystem(message.client, args.action, message.author.id));
+                    } else if (fnName === "bot_status") {
+                        const { manageBotStatus } = require('../ownerTool/StatusTool');
+                        toolResult = JSON.stringify(await manageBotStatus(message.client, message.author.id, args));
                     } else if (fnName === "send_dm") {
                         const { sendDm } = require('../tools/DmTool');
                         const isAdmin = (message.member && (message.member.permissions.has('Administrator') || message.member.permissions.has('ModerateMembers'))) || (message.author.id === process.env.OWNER_ID);
