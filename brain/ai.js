@@ -503,8 +503,6 @@ async function getChatResponse(message, displayName, userMessage) {
                             temperature: 1.0,
                             top_p: 1.0,
                             max_tokens: 8192,
-                            reasoning_effort: "max",
-                            chat_template_kwargs: { thinking: true },
                             tools: tools,
                             tool_choice: "auto"
                         }),
