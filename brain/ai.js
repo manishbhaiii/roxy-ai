@@ -183,7 +183,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "get_activity",
-                    description: "Fetch a user's current activity (playing games, Spotify listening, custom status, devices used, online status).",
+                    description: "Fetch a user's current activity (playing games, Spotify listening, watching, streaming, custom status). Provides rich presence details like large/small image URLs, state, timestamps, and party info.",
                     parameters: {
                         "type": "object",
                         "properties": {

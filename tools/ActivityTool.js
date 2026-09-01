@@ -46,6 +46,29 @@ async function getUserActivity(client, userId) {
                 if (activity.details) act.details = activity.details;
                 if (activity.state) act.state = activity.state;
                 if (activity.emoji) act.emoji = activity.emoji.name;
+                if (activity.url) act.url = activity.url;
+                if (activity.applicationId) act.applicationId = activity.applicationId;
+                
+                if (activity.assets) {
+                    act.assets = {};
+                    if (activity.assets.largeText) act.assets.largeText = activity.assets.largeText;
+                    if (activity.assets.smallText) act.assets.smallText = activity.assets.smallText;
+                    try { if (activity.assets.largeImageURL) act.assets.largeImageURL = activity.assets.largeImageURL(); } catch(e){}
+                    try { if (activity.assets.smallImageURL) act.assets.smallImageURL = activity.assets.smallImageURL(); } catch(e){}
+                }
+                
+                if (activity.timestamps) {
+                    act.timestamps = {};
+                    if (activity.timestamps.start) act.timestamps.start = new Date(activity.timestamps.start).toISOString();
+                    if (activity.timestamps.end) act.timestamps.end = new Date(activity.timestamps.end).toISOString();
+                }
+                
+                if (activity.party) {
+                    act.party = {
+                        id: activity.party.id,
+                        size: activity.party.size
+                    };
+                }
                 
                 result.activities.push(act);
             });
