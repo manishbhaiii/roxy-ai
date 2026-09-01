@@ -486,13 +486,16 @@ async function getChatResponse(message, displayName, userMessage) {
             }
 
             for (let modelId of modelsToTry) {
+                let controller = new AbortController();
+                let timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second fetch timeout
+                
                 try {
                     response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json',
-                            'User-Agent': 'opencode/1.0.0'
+                            'User-Agent': 'opencode/1.2.6'
                         },
                         body: JSON.stringify({
                             model: modelId,
@@ -504,8 +507,11 @@ async function getChatResponse(message, displayName, userMessage) {
                             chat_template_kwargs: { thinking: true },
                             tools: tools,
                             tool_choice: "auto"
-                        })
+                        }),
+                        signal: controller.signal
                     });
+                    
+                    clearTimeout(timeoutId);
                     
                     if (response.ok) {
                         success = true;
@@ -515,19 +521,30 @@ async function getChatResponse(message, displayName, userMessage) {
                             activeModel = modelId;
                         }
                         break;
+                    } else if (response.status === 429) {
+                        console.log(`\x1b[33mRate Limited (${modelId})\x1b[0m`);
+                        // Stop looping through other models, IP is rate limited
+                        break;
                     } else {
-                        console.log(`\x1b[31mF: ${modelId}\x1b[0m`);
+                        console.log(`\x1b[31mF: ${modelId} (${response.status})\x1b[0m`);
                         bannedModels[modelId] = Date.now() + 3600000;
                         if (activeModel === modelId) activeModel = null;
                     }
                 } catch (err) {
-                    console.log(`\x1b[31mF: ${modelId}\x1b[0m`);
+                    clearTimeout(timeoutId);
+                    console.log(`\x1b[31mF: ${modelId} (${err.name === 'AbortError' ? 'Timeout' : err.message})\x1b[0m`);
                     bannedModels[modelId] = Date.now() + 3600000;
                     if (activeModel === modelId) activeModel = null;
                 }
             }
 
             if (!success) {
+                if (response && response.status === 429) {
+                    if (maxLoops > 0) {
+                        await new Promise(r => setTimeout(r, 4000)); // wait 4 seconds before retrying
+                        continue;
+                    }
+                }
                 return "i am sleeping rn";
             }
 
