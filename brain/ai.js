@@ -487,7 +487,7 @@ async function getChatResponse(message, displayName, userMessage) {
 
             for (let modelId of modelsToTry) {
                 let controller = new AbortController();
-                let timeoutId = setTimeout(() => controller.abort(), 12000); // 12 second fetch timeout
+                let timeoutId = setTimeout(() => controller.abort(), 35000); // 35 second fetch timeout
                 
                 try {
                     response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
