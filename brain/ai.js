@@ -19,7 +19,9 @@ let activeModel = null;
 
 async function refreshFreeModels() {
     try {
-        const res = await fetch("https://opencode.ai/zen/v1/models");
+        const res = await fetch("https://opencode.ai/zen/v1/models", {
+            headers: process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {}
+        });
         const json = await res.json();
         const models = json.data.filter(m => m.id.toLowerCase().includes('free')).map(m => m.id);
         if (models.length > 0) {
@@ -513,7 +515,8 @@ async function getChatResponse(message, displayName, userMessage) {
                         headers: {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json',
-                            'User-Agent': 'opencode/1.2.6'
+                            'User-Agent': 'opencode/1.2.6',
+                            ...(process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {})
                         },
                         body: JSON.stringify({
                             model: modelId,
