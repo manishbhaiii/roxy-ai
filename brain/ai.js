@@ -19,8 +19,12 @@ let activeModel = null;
 
 async function refreshFreeModels() {
     try {
+        const crypto = require('crypto');
         const res = await fetch("https://opencode.ai/zen/v1/models", {
-            headers: process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {}
+            headers: {
+                'X-Session-Id': crypto.randomUUID(),
+                ...(process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {})
+            }
         });
         const json = await res.json();
         const models = json.data.filter(m => m.id.toLowerCase().includes('free')).map(m => m.id);
@@ -516,6 +520,7 @@ async function getChatResponse(message, displayName, userMessage) {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json',
                             'User-Agent': 'opencode/1.2.6',
+                            'X-Session-Id': require('crypto').randomUUID(),
                             ...(process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {})
                         },
                         body: JSON.stringify({
