@@ -115,6 +115,10 @@ async function getChatResponse(message, displayName, userMessage) {
         if (isSpamming(userId)) {
             return null; // Silently ignore spam
         }
+
+        if (userMessage && userMessage.length > 800) {
+            return "stop writing paragraph";
+        }
         const config = await getAiConfig();
         const userData = await getUserData(userId);
         const profile = userData.profile;
@@ -133,6 +137,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 for (let m of recentMsgs) {
                     let role = (m.author.id === botId) ? "Roxy" : (m.author.displayName || m.author.username);
                     let content = m.content || "[Media/Attachment]";
+                    if (content.length > 800) content = "[Large Message Filtered]";
                     channelContextText += `[${role}]: ${content}\n`;
                 }
                 channelContextText += "------------------------------------------\n";
@@ -147,6 +152,7 @@ async function getChatResponse(message, displayName, userMessage) {
                         let parentMsg = await msg.channel.messages.fetch(currentMsg.reference.messageId);
                         let role = (parentMsg.author.id === botId) ? "Roxy" : (parentMsg.author.displayName || parentMsg.author.username);
                         let content = parentMsg.content || "[Media/Attachment]";
+                        if (content.length > 800) content = "[Large Message Filtered]";
                         replyChain.unshift(`[${role}]: ${content}`);
                         currentMsg = parentMsg;
                         depth++;
