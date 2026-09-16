@@ -17,6 +17,30 @@ let currentFreeModels = ["mimo-v2.5-free", "deepseek-v4-flash-free"];
 let bannedModels = {};
 let activeModel = null;
 
+const userCooldowns = new Map();
+
+function isSpamming(userId) {
+    if (userId === process.env.OWNER_ID) return false; // Owner is exempt
+    const now = Date.now();
+    if (!userCooldowns.has(userId)) {
+        userCooldowns.set(userId, { count: 1, firstHit: now });
+        return false;
+    }
+
+    const userData = userCooldowns.get(userId);
+    if (now - userData.firstHit > 5000) {
+        userData.count = 1;
+        userData.firstHit = now;
+        return false;
+    }
+
+    userData.count++;
+    if (userData.count > 3) {
+        return true;
+    }
+    return false;
+}
+
 async function refreshFreeModels() {
     try {
         const crypto = require('crypto');
@@ -87,6 +111,10 @@ async function saveUserData(userId, userData) {
 async function getChatResponse(message, displayName, userMessage) {
     try {
         const userId = message.author.id;
+        
+        if (isSpamming(userId)) {
+            return null; // Silently ignore spam
+        }
         const config = await getAiConfig();
         const userData = await getUserData(userId);
         const profile = userData.profile;
