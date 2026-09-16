@@ -250,6 +250,46 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "generate_canvas",
+                    description: "Generate a canvas drawing (e.g. presentation slide, table, shapes, UI mockup). Provide a list of drawing instructions.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            instructions: {
+                                type: "array",
+                                description: "List of drawing commands. MUST start with a 'size' command. Available types: size, background, rect, circle, line, text.",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        type: { type: "string", enum: ["size", "background", "rect", "circle", "line", "text"] },
+                                        width: { type: "number", description: "Used in size/line/text" },
+                                        height: { type: "number", description: "Used in size" },
+                                        color: { type: "string", description: "Hex color e.g. #ff0000" },
+                                        x: { type: "number" },
+                                        y: { type: "number" },
+                                        w: { type: "number", description: "Width for rect" },
+                                        h: { type: "number", description: "Height for rect" },
+                                        r: { type: "number", description: "Radius for circle" },
+                                        x1: { type: "number" },
+                                        y1: { type: "number" },
+                                        x2: { type: "number" },
+                                        y2: { type: "number" },
+                                        text: { type: "string" },
+                                        size: { type: "number", description: "Font size for text" },
+                                        align: { type: "string", enum: ["left", "center", "right"] },
+                                        font: { type: "string" },
+                                        fill: { type: "boolean", description: "If false, only strokes the shape/text. Default true." }
+                                    }
+                                }
+                            }
+                        },
+                        required: ["instructions"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "send_dm",
                     description: "Send a direct message to a specific user.",
                     parameters: {
@@ -685,6 +725,29 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_anime_gif") {
                         const { getGif } = require('../tools/GifTool');
                         toolResult = JSON.stringify(await getGif(args.action, args.pairing));
+                    } else if (fnName === "generate_canvas") {
+                        const { generateCanvasImage } = require('../tools/CanvasTool');
+                        const path = require('path');
+                        const crypto = require('crypto');
+                        const outPath = path.join(__dirname, '../', `canvas_${crypto.randomUUID()}.png`);
+                        try {
+                            const savedPath = await generateCanvasImage(args.instructions, outPath);
+                            const { AttachmentBuilder } = require('discord.js');
+                            const attachment = new AttachmentBuilder(savedPath);
+                            
+                            // Send the image and break the loop
+                            await message.reply({ files: [attachment] });
+                            
+                            const fs = require('fs');
+                            setTimeout(() => {
+                                fs.unlink(savedPath, () => {});
+                            }, 60000); // cleanup after 1 min
+                            
+                            return null;
+                        } catch (e) {
+                            console.error("Canvas error:", e);
+                            toolResult = JSON.stringify({ error: "Failed to generate canvas image" });
+                        }
                     } else if (fnName === "execute_response") {
                         let validationErrors = [];
                         let textReply = args.text || "";

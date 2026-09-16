@@ -19,9 +19,13 @@
   },
   "homepage": "https://github.com/manishbhaiii/roxy-ai#readme",
   "dependencies": {
+    "canvas": "^3.2.3",
     "chalk": "^4.1.2",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
     "gradient-string": "^2.0.2"
+  },
+  "allowScripts": {
+    "canvas@3.2.3": true
   }
 }
