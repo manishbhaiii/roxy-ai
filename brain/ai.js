@@ -13,7 +13,7 @@ const { getUserActivity } = require('../tools/ActivityTool');
 
 const DATA_DIR = path.join(__dirname, '../data');
 
-let currentFreeModels = ["mimo-v2.5-free", "deepseek-v4-flash-free"];
+let currentFreeModels = ["kilo-auto/free", "poolside/laguna-s-2.1:free", "stepfun/step-3.7-flash:free"];
 let bannedModels = {};
 let activeModel = null;
 
@@ -44,14 +44,14 @@ function isSpamming(userId) {
 async function refreshFreeModels() {
     try {
         const crypto = require('crypto');
-        const res = await fetch("https://opencode.ai/zen/v1/models", {
+        const res = await fetch("https://api.kilo.ai/api/gateway/v1/models", {
             headers: {
                 'X-Session-Id': crypto.randomUUID(),
                 ...(process.env.AI_API ? { 'Authorization': `Bearer ${process.env.AI_API}` } : {})
             }
         });
         const json = await res.json();
-        const models = json.data.filter(m => m.id.toLowerCase().includes('free')).map(m => m.id);
+        const models = json.data.map(m => m.id);
         if (models.length > 0) {
             currentFreeModels = models;
         }
@@ -602,7 +602,7 @@ async function getChatResponse(message, displayName, userMessage) {
                 let timeoutId = setTimeout(() => controller.abort(), 35000); // 35 second fetch timeout
                 
                 try {
-                    response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+                    response = await fetch('https://api.kilo.ai/api/gateway/v1/chat/completions', {
                         method: 'POST',
                         headers: {
                             'Accept': 'application/json',
