@@ -250,6 +250,20 @@ async function getChatResponse(message, displayName, userMessage) {
             {
                 type: "function",
                 function: {
+                    name: "youtube_search",
+                    description: "Search YouTube for a video and get its title, url, duration, and channel.",
+                    parameters: {
+                        "type": "object",
+                        "properties": {
+                            "query": { "type": "string", "description": "The search query for YouTube." }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
                     name: "generate_canvas",
                     description: "Generate a canvas drawing (e.g. presentation slide, table, shapes, UI mockup). Provide a list of drawing instructions.",
                     parameters: {
@@ -671,6 +685,9 @@ async function getChatResponse(message, displayName, userMessage) {
                     } else if (fnName === "get_activity") {
                         const activity = await getUserActivity(message.client, args.user_id);
                         toolResult = JSON.stringify(activity);
+                    } else if (fnName === "youtube_search") {
+                        const { searchYoutube } = require('../tools/YtSearchTool');
+                        toolResult = JSON.stringify(await searchYoutube(args.query));
                     } else if (fnName === "web_search") {
                         toolResult = JSON.stringify(await webSearch(args.query));
                     } else if (fnName === "timeout_user") {

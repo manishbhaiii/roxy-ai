@@ -23,7 +23,8 @@
     "chalk": "^4.1.2",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
-    "gradient-string": "^2.0.2"
+    "gradient-string": "^2.0.2",
+    "yt-search": "^2.13.1"
   },
   "allowScripts": {
     "canvas@3.2.3": true
