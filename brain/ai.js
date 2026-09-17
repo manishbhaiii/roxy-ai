@@ -202,21 +202,24 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "get_emojis",
-                    description: "Fetch a list of available custom emojis from the server."
+                    description: "Fetch a list of available custom emojis from the server.",
+                    parameters: { type: "object", properties: {} }
                 }
             },
             {
                 type: "function",
                 function: {
                     name: "get_stickers",
-                    description: "Fetch a list of available custom stickers from the server."
+                    description: "Fetch a list of available custom stickers from the server.",
+                    parameters: { type: "object", properties: {} }
                 }
             },
             {
                 type: "function",
                 function: {
                     name: "get_bot_stats",
-                    description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime."
+                    description: "Fetch the bot's system specs, memory usage, CPU, ping, and uptime.",
+                    parameters: { type: "object", properties: {} }
                 }
             },
             {
@@ -335,7 +338,8 @@ async function getChatResponse(message, displayName, userMessage) {
                 type: "function",
                 function: {
                     name: "list_tasks",
-                    description: "List all active scheduled cronjobs for the user."
+                    description: "List all active scheduled cronjobs for the user.",
+                    parameters: { type: "object", properties: {} }
                 }
             },
             {
@@ -617,7 +621,6 @@ async function getChatResponse(message, displayName, userMessage) {
                             temperature: 1.0,
                             top_p: 1.0,
                             max_tokens: 8192,
-                            chat_template_kwargs: { thinking: true },
                             tools: tools,
                             tool_choice: "auto"
                         }),
