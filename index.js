@@ -42,6 +42,7 @@ client.triggerCronjob = async (job) => {
 const purpleWhite = gradient('purple', 'white');
 
 const lastInteractions = new Map();
+const processingUsers = new Set();
 
 console.log(purpleWhite('roxy ai is booting..'));
 
@@ -83,6 +84,8 @@ client.on(Events.MessageCreate, async (message) => {
         let isContinuation = false;
         
         if (!isMentioned && !isReplyToBot) {
+            if (processingUsers.has(interactionKey)) return;
+            
             const lastTime = lastInteractions.get(interactionKey);
             if (lastTime && (Date.now() - lastTime) <= 20000) {
                 isContinuation = true;
@@ -90,6 +93,8 @@ client.on(Events.MessageCreate, async (message) => {
                 return;
             }
         }
+        
+        processingUsers.add(interactionKey);
 
         await message.channel.sendTyping();
         const typingInterval = setInterval(() => {
@@ -114,6 +119,7 @@ client.on(Events.MessageCreate, async (message) => {
             response = await getChatResponse(message, displayName, content);
         } finally {
             clearInterval(typingInterval);
+            processingUsers.delete(interactionKey);
         }
         
         if (response) {
