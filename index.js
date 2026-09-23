@@ -41,6 +41,8 @@ client.triggerCronjob = async (job) => {
 
 const purpleWhite = gradient('purple', 'white');
 
+const lastInteractions = new Map();
+
 console.log(purpleWhite('roxy ai is booting..'));
 
 client.once(Events.ClientReady, () => {
@@ -77,7 +79,17 @@ client.on(Events.MessageCreate, async (message) => {
             }
         }
 
-        if (!isMentioned && !isReplyToBot) return;
+        const interactionKey = `${message.author.id}_${message.channel.id}`;
+        let isContinuation = false;
+        
+        if (!isMentioned && !isReplyToBot) {
+            const lastTime = lastInteractions.get(interactionKey);
+            if (lastTime && (Date.now() - lastTime) <= 20000) {
+                isContinuation = true;
+            } else {
+                return;
+            }
+        }
 
         await message.channel.sendTyping();
         const typingInterval = setInterval(() => {
@@ -107,6 +119,8 @@ client.on(Events.MessageCreate, async (message) => {
         if (response) {
             await message.reply(response);
         }
+        
+        lastInteractions.set(interactionKey, Date.now());
 
     } catch (error) {
         console.error("Message handling error:", error);
